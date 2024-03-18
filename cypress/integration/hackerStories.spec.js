@@ -1,12 +1,79 @@
 describe('Hacker Stories', () => {
 
+  const initialTerm = 'React'
+  const newTerm = 'Cypress'
+
+  context('Hitting the real API', () => {
+    beforeEach(() => {
+    
+      cy.intercept({
+        method: 'GET',
+        pathname: '**/search',
+        query: {
+          query: initialTerm,
+          page: '0'
+        }
+      }).as('getStories')
+  
+      cy.visit('/')
+      cy.wait('@getStories')
+    })
+
+    it('shows 20 stories, then the next 20 after clicking "More"', () => {
+
+      cy.intercept({
+        method: 'GET',
+        pathname: '**/search',
+        query: {
+          query: initialTerm,
+          page: '1'
+        }
+      }).as('getNextStories')
+      
+      cy.get('.item').should('have.length', 20)
+
+      cy.contains('More').click()
+      
+      cy.wait('@getNextStories')
+
+      cy.get('.item').should('have.length', 40)
+    })
+
+    it('searches via the last searched term', () => {
+      
+      cy.intercept(
+        'GET',
+        `**/search?query=${newTerm}&page=0`
+      ).as('getNewTermStories')
+
+      cy.get('#search')
+        .clear()
+        .type(`${newTerm}{enter}`)
+
+        cy.wait('@getNewTermStories')
+
+      cy.get(`button:contains(${initialTerm})`)
+        .should('be.visible')
+        .click()
+
+        cy.wait('@getStories') 
+
+      cy.get('.item').should('have.length', 20)
+      cy.get('.item')
+        .first()
+        .should('contain', initialTerm)
+      cy.get(`button:contains(${newTerm})`)
+        .should('be.visible')
+    })
+  })
+  
     beforeEach(() => {
     
     cy.intercept({
       method: 'GET',
       pathname: '**/search',
       query: {
-        query: 'React',
+        query: initialTerm,
         page: '0'
       }
     }).as('getStories')
@@ -29,24 +96,6 @@ describe('Hacker Stories', () => {
     // This is why this test is being skipped.
     // TODO: Find a way to test it out.
     it.skip('shows the right data for all rendered stories', () => {})
-
-    it('shows 20 stories, then the next 20 after clicking "More"', () => {
-
-      cy.intercept({
-        method: 'GET',
-        pathname: '**/search',
-        query: {
-          query: 'React',
-          page: '1'
-        }
-      }).as('getMore')
-      
-      cy.get('.item').should('have.length', 20)
-
-      cy.contains('More').click()
-      
-      cy.wait('@getMore')
-    })
 
     it('shows only nineteen stories after dimissing the first story', () => {
       cy.get('.button-small')
@@ -73,8 +122,7 @@ describe('Hacker Stories', () => {
 
 
   context('Search', () => {
-    const initialTerm = 'React'
-    const newTerm = 'Cypress'
+
 
     beforeEach(() => {
 
@@ -129,25 +177,6 @@ describe('Hacker Stories', () => {
     // })
 
     context('Last searches', () => {
-      it('searches via the last searched term', () => {
-        cy.get('#search')
-          .type(`${newTerm}{enter}`)
-
-          cy.wait('@getNewTermStories')
-
-        cy.get(`button:contains(${initialTerm})`)
-          .should('be.visible')
-          .click()
-
-          cy.wait('@getStories') 
-
-        cy.get('.item').should('have.length', 20)
-        cy.get('.item')
-          .first()
-          .should('contain', initialTerm)
-        cy.get(`button:contains(${newTerm})`)
-          .should('be.visible')
-      })
 
       it('shows a max of 5 buttons for the last searched terms', () => {
         const faker = require('faker')
@@ -172,7 +201,7 @@ describe('Hacker Stories', () => {
 })
 
  
-    context.only('Errors', () => {
+    context('Errors', () => {
       it('shows "Something went wrong ..." in case of a server error', () => {
         cy.intercept(
           'GET',
@@ -201,7 +230,8 @@ describe('Hacker Stories', () => {
         .should('be.visible')
       })
     })
-  })
+})
+  
 
 
 
