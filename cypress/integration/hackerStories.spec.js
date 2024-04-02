@@ -1,25 +1,78 @@
+
 describe('Hacker Stories', () => {
   const initialTerm = 'React'
   const newTerm = 'Cypress'
 
   context('Hitting the real API', () => {
+    beforeEach(() => {
+      cy.intercept({
+        method: 'GET',
+        pathname: '**/search',
+        query: {
+          query: initialTerm,
+          page: '0'
+        }
+      }).as('getStories')
+
+      cy.visit('/')
+      cy.wait('@getStories')
+    })
+
+    it('shows 20 stories, then the next 20 after clicking "More"', () => {
+      cy.intercept({
+        method: 'GET',
+        pathname: '**/search',
+        query: {
+          query: initialTerm,
+          page: '1'
+        }
+      }).as('getNextStories')
+
+      cy.get('.item').should('have.length', 20)
+
+      cy.contains('More').click()
+
+      cy.wait('@getNextStories')
+
+      cy.get('.item').should('have.length', 40)
+    })
+
+    it('searches via the last searched term', () => {
+      cy.intercept(
+        'GET',
+        `**/search?query=${newTerm}&page=0`
+      ).as('getNewTermStories')
+
+      cy.get('#search')
+        .clear()
+        .type(`${newTerm}{enter}`)
+
+      cy.wait('@getNewTermStories')
+
+      cy.get(`button:contains(${initialTerm})`)
+        .should('be.visible')
+        .click()
+
+      cy.wait('@getStories')
+
+      cy.get('.item').should('have.length', 20)
+      cy.get('.item')
+        .first()
+        .should('contain', initialTerm)
+      cy.get(`button:contains(${newTerm})`)
+        .should('be.visible')
+    })
   })
 
   context('Mocking the API', () => {
     context('Footer and list of stories', () => {
       beforeEach(() => {
-        // Essa foi a primeira requisição feita que mudou para o outro cy.intercept que está embaixo.
-        // cy.intercept({
-        //   method: 'GET',
-        //   pathname: '**/search',
-        //   query: {
-        //     query: initialTerm,
-        //     page: '0'
-        //   }
-        // }).as('getStories')
+        cy.intercept(
+          'GET',
+          `**/search?query=${initialTerm}&page=0`,
+          { fixture: 'stories' }
+        ).as('getStories')
 
-        // O seguinte intercept faz uma requisição com os dados que estão na pasta fixtures/stories
-        cy.intercept('GET', `**/search?query=${initialTerm}&page=0`, { fixture: 'stories' }).as('getStories')
         cy.visit('/')
         cy.wait('@getStories')
       })
@@ -31,14 +84,31 @@ describe('Hacker Stories', () => {
       })
 
       context('List of stories', () => {
-        // Since the API is external,
-        // I can't control what it will provide to the frontend,
-        // and so, how can I assert on the data?
-        // This is why this test is being skipped.
-        // TODO: Find a way to test it out.
-        it.skip('shows the right data for all rendered stories', () => {})
 
-        it('shows one less story after dimissing the first one', () => {
+        it.only('shows the right data for all rendered stories', () => {
+          const stories = require('../fixtures/stories')
+
+          cy.get('.item')
+            .first()
+            .should('contain', stories.hits[0].title)
+            .and('contain', stories.hits[0].author)
+            .and('contain', stories.hits[0].num_comments)
+            .and('contain', stories.hits[0].points)
+          cy.get(`.item a:contains(${stories.hits[0].title})`)
+            .should('have.attr', 'href', stories.hits[0].url)
+
+
+            cy.get('.item')
+            .last()
+            .should('contain', stories.hits[1].title)
+            .and('contain', stories.hits[1].author)
+            .and('contain', stories.hits[1].num_comments)
+            .and('contain', stories.hits[1].points)
+          cy.get(`.item a:contains(${stories.hits[1].title})`)
+            .should('have.attr', 'href', stories.hits[1].url)
+        })
+
+        it('shows one story less after dimissing the first one', () => {
           cy.get('.button-small')
             .first()
             .click()
@@ -61,94 +131,88 @@ describe('Hacker Stories', () => {
           it('orders by points', () => {})
         })
       })
+    })
 
-      context('Search', () => {
-        beforeEach(() => {
+    context('Search', () => {
+      beforeEach(() => {
+        cy.intercept(
+          'GET',
+          `**/search?query=${initialTerm}&page=0`,
+          { fixture: 'empty' }
+        ).as('getEmptyStories')
 
-          //Aqui é onde está aparecendo o erro Timed out retrying after 5000ms: cy.wait() timed out waiting 5000ms for the 1st request to the route: getEmptyStories. No request ever occurred.
-          cy.intercept('GET', `**/search?query=${initialTerm}&page=0`, { fixture: 'empty' }).as('getEmptyStories')   
-          cy.intercept('GET', `**/search?query=${newTerm}&page=0`, { fixture: 'stories' }).as('getStories')
+        cy.intercept(
+          'GET',
+          `**/search?query=${newTerm}&page=0`,
+          { fixture: 'stories' }
+        ).as('getStories')
 
-          cy.visit('/')
-          cy.wait('@getEmptyStories')
+        cy.visit('/')
+        cy.wait('@getEmptyStories')
 
-          cy.get('#search')
-            .clear()
-        })
+        cy.get('#search')
+          .clear()
+      })
 
-        it.only('types and hits ENTER', () => {
-          cy.get('#search')
-            .type(`${newTerm}{enter}`)
+      it('types and hits ENTER', () => {
+        cy.get('#search')
+          .type(`${newTerm}{enter}`)
 
-          cy.wait('@getStories')
+        cy.wait('@getStories')
 
-          cy.get('.item').should('have.length', 2)
-          cy.get(`button:contains(${initialTerm})`)
-            .should('be.visible')
-        })
+        cy.get('.item').should('have.length', 2)
+        cy.get(`button:contains(${initialTerm})`)
+          .should('be.visible')
+      })
 
-        it('types and clicks the submit button', () => {
-          cy.get('#search')
-            .type(newTerm)
-          cy.contains('Submit')
-            .click()
+      it('types and clicks the submit button', () => {
+        cy.get('#search')
+          .type(newTerm)
+        cy.contains('Submit')
+          .click()
 
-          cy.wait('@getNewTermStories')
+        cy.wait('@getStories')
 
-          cy.get('.item').should('have.length', 20)
-          cy.get('.item')
-            .first()
-            .should('contain', newTerm)
-          cy.get(`button:contains(${initialTerm})`)
-            .should('be.visible')
-        })
+        cy.get('.item').should('have.length', 2)
+        cy.get(`button:contains(${initialTerm})`)
+          .should('be.visible')
+      })
 
-        // it('types and submits the form directly', () => {
-        //   cy.get('#search')
-        //   .type(newTerm)
-        //   cy.get('form').submit()
+      context('Last searches', () => {
+        it('shows a max of 5 buttons for the last searched terms', () => {
+          const faker = require('faker')
 
-        //   cy.wait('@getNewTermStories')
+          cy.intercept(
+            'GET',
+            '**/search**',
+            { fixture: 'empty' }
+          ).as('getRandomStories')
 
-        //   cy.get('.item').should('have.length', 20)
-        // })
-
-        context('Last searches', () => {
-          it('shows a max of 5 buttons for the last searched terms', () => {
-            const faker = require('faker')
-
-            cy.intercept(
-              'GET',
-              '**/search**'
-            ).as('getRandomData')
-
-            Cypress._.times(6, () => {
-              cy.get('#search')
-                .clear()
-                .type(`${faker.random.word()}{enter}`)
-              cy.wait('@getRandomData')
-            })
-
-            cy.get('.last-searches button')
-              .should('have.length', 5)
+          Cypress._.times(6, () => {
+            cy.get('#search')
+              .clear()
+              .type(`${faker.random.word()}{enter}`)
+            cy.wait('@getRandomStories')
           })
+
+          cy.get('.last-searches button')
+            .should('have.length', 5)
         })
       })
     })
   })
 })
 
-// Nesse context a continuação são dois cenários de erro que simulam a resposta do sistema quando fica sem internet
 context('Errors', () => {
   it('shows "Something went wrong ..." in case of a server error', () => {
     cy.intercept(
       'GET',
       '**/search**',
       { statusCode: 500 }
-    ).as('expectServerFailure')
+    ).as('getServerFailure')
 
     cy.visit('/')
-    cy.wait('@expectServerFailure')
+    cy.wait('@getServerFailure')
 
     cy.get('p:contains(Something went wrong ...)')
       .should('be.visible')
@@ -159,10 +223,10 @@ context('Errors', () => {
       'GET',
       '**/search**',
       { forceNetworkError: true }
-    ).as('expectNetworkFailure')
+    ).as('getNetworkFailure')
 
     cy.visit('/')
-    cy.wait('@expectNetworkFailure')
+    cy.wait('@getNetworkFailure')
 
     cy.get('p:contains(Something went wrong ...)')
       .should('be.visible')
