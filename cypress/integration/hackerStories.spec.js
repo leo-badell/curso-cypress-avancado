@@ -84,9 +84,9 @@ describe('Hacker Stories', () => {
       })
 
       context('List of stories', () => {
+        const stories = require('../fixtures/stories')
 
-        it.only('shows the right data for all rendered stories', () => {
-          const stories = require('../fixtures/stories')
+        it('shows the right data for all rendered stories', () => {
 
           cy.get('.item')
             .first()
@@ -121,8 +121,31 @@ describe('Hacker Stories', () => {
         // and so, how can I test ordering?
         // This is why these tests are being skipped.
         // TODO: Find a way to test them out.
-        context.skip('Order by', () => {
-          it('orders by title', () => {})
+        context('Order by', () => {
+          it('orders by title', () => {
+
+            cy.get('.list-header-button:contains(Title)')
+              .as('titleHeader')
+              .click()
+
+            cy.get('.item')
+              .first()
+              .should('be.visible')
+              .and('contain', stories.hits[0].title)
+            cy.get(`.item a:contains(${stories.hits[0].title})`)
+              .should('have.attr', 'href', stories.hits[0].url)
+
+            cy.get('@titleHeader')
+              .click()
+
+            cy.get('.item')
+              .first()
+              .should('be.visible')
+              .and('contain', stories.hits[1].title)
+            cy.get(`.item a:contains(${stories.hits[1].title})`)
+              .should('have.attr', 'href', stories.hits[1].url)
+
+          })
 
           it('orders by author', () => {})
 
