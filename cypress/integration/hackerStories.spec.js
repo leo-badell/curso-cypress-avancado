@@ -116,11 +116,7 @@ describe('Hacker Stories', () => {
           cy.get('.item').should('have.length', 1)
         })
 
-        // Since the API is external,
-        // I can't control what it will provide to the frontend,
-        // and so, how can I test ordering?
-        // This is why these tests are being skipped.
-        // TODO: Find a way to test them out.
+
         context('Order by', () => {
           it('orders by title', () => {
 
@@ -228,6 +224,10 @@ describe('Hacker Stories', () => {
 
         cy.get('#search')
           .clear()
+      })
+
+      it('shows not story when none is returned', () => {
+        cy.get('.item').should('not.exist')
       })
 
       it('types and hits ENTER', () => {
