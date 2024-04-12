@@ -220,7 +220,7 @@ describe('Hacker Stories', () => {
       })
     })
 
-    context.only('Search', () => {
+    context('Search', () => {
       beforeEach(() => {
         cy.intercept(
           'GET',
@@ -294,7 +294,7 @@ describe('Hacker Stories', () => {
             
             cy.get('#search')
               .clear()
-              .type(`${faker.random.word()}{enter}`)
+              .type(`${randomWord}{enter}`)
             cy.wait('@getRandomStories')
             cy.getLocalStorage('search')
               .should('be.equal', randomWord)
@@ -340,4 +340,15 @@ context('Errors', () => {
     cy.get('p:contains(Something went wrong ...)')
       .should('be.visible')
   })
+})
+
+it('shows a "Loading ..." state before showing the results', () => {
+  cy.intercept('GET', '**/search**', { delay: 1000, fixture: 'stories'}).as('getDelayedStories')
+
+  cy.visit('/')
+
+  cy.assertLoadingIsShownAndHidden()
+  cy.wait('@getDelayedStories')
+
+  cy.get('.item').should('have.length', 2)
 })
